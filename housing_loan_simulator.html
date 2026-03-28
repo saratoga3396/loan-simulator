@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>住宅ローンシミュレーター</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f0efe9;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.18);
+    --text: #1a1917;
+    --text2: #6b6a65;
+    --text3: #9b9a95;
+    --accent: #1a56a0;
+    --accent-light: #e8f0fb;
+    --accent-text: #0c3d7a;
+    --green: #2d6a1f;
+    --green-light: #eaf3de;
+    --green-text: #1e4d14;
+    --amber: #7a4a00;
+    --amber-light: #fdf3e0;
+    --amber-text: #5c3500;
+    --red: #9b1f1f;
+    --red-light: #fdeaea;
+    --red-text: #6e1414;
+    --radius: 10px;
+    --radius-lg: 14px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #18181a;
+      --surface: #242428;
+      --surface2: #2e2e32;
+      --border: rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.14);
+      --text: #f0ede8;
+      --text2: #a09e98;
+      --text3: #6a6864;
+      --accent: #4a8fd4;
+      --accent-light: #0e2540;
+      --accent-text: #a0c8f0;
+      --green: #5ab840;
+      --green-light: #0d2208;
+      --green-text: #9de080;
+      --amber: #e09030;
+      --amber-light: #251800;
+      --amber-text: #f0c060;
+      --red: #e05050;
+      --red-light: #250a0a;
+      --red-text: #f08080;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 2rem 1.25rem 4rem;
+  }
+  header {
+    margin-bottom: 2rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+  }
+  header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  header p {
+    font-size: 13px;
+    color: var(--text2);
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow);
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text3);
+    margin-bottom: 1rem;
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1rem; }
+  @media (max-width: 600px) {
+    .grid2 { grid-template-columns: 1fr; }
+    .grid4 { grid-template-columns: repeat(2, 1fr); }
+    header { flex-direction: column; gap: 0.25rem; }
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; color: var(--text2); }
+  .field-row { display: flex; justify-content: space-between; align-items: center; }
+  .field-row .val { font-size: 13px; font-weight: 600; color: var(--text); }
+  .field-row .range-min, .field-row .range-max { font-size: 11px; color: var(--text3); }
+  input[type=range] {
+    width: 100%;
+    height: 4px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .metric {
+    background: var(--surface2);
+    border-radius: var(--radius);
+    padding: 0.875rem 1rem;
+    text-align: center;
+  }
+  .metric-label { font-size: 11px; color: var(--text2); margin-bottom: 5px; }
+  .metric-value { font-size: 19px; font-weight: 600; color: var(--text); line-height: 1; }
+  .metric-sub { font-size: 10px; color: var(--text3); margin-top: 3px; }
+  .alert {
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-bottom: 1rem;
+    border: 1px solid;
+  }
+  .alert-ok { background: var(--green-light); color: var(--green-text); border-color: rgba(45,106,31,0.2); }
+  .alert-warn { background: var(--amber-light); color: var(--amber-text); border-color: rgba(122,74,0,0.2); }
+  .alert-danger { background: var(--red-light); color: var(--red-text); border-color: rgba(155,31,31,0.2); }
+  .tabs { display: flex; gap: 6px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .tab {
+    padding: 6px 14px;
+    font-size: 13px;
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    cursor: pointer;
+    background: transparent;
+    color: var(--text2);
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .tab:hover { background: var(--surface2); color: var(--text); }
+  .tab.active { background: var(--accent-light); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--text2); margin-bottom: 10px; }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .chart-wrap { position: relative; width: 100%; }
+  .prepay-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 1rem; font-size: 13px; color: var(--text2); }
+  .prepay-controls input[type=number], .prepay-controls select {
+    padding: 6px 10px;
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+  }
+  .prepay-controls input[type=number] { width: 100px; }
+  .prepay-controls select { width: 130px; }
+  .risk-controls { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; }
+  footer {
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text3);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>住宅ローンシミュレーター</h1>
+    <p>変動・固定比較 / 繰り上げ返済 / 金利上昇リスク</p>
+  </header>
+
+  <div class="card">
+    <div class="card-title">基本条件</div>
+    <div class="grid2" style="margin-bottom:1rem">
+      <div class="field">
+        <label>年収（万円）</label>
+        <input type="range" id="income" min="200" max="2000" step="10" value="600">
+        <div class="field-row"><span class="range-min">200万</span><span class="val" id="income-v">600万円</span><span class="range-max">2,000万</span></div>
+      </div>
+      <div class="field">
+        <label>頭金（万円）</label>
+        <input type="range" id="downpay" min="0" max="2000" step="50" value="400">
+        <div class="field-row"><span class="range-min">0万</span><span class="val" id="downpay-v">400万円</span><span class="range-max">2,000万</span></div>
+      </div>
+      <div class="field">
+        <label>物件価格（万円）</label>
+        <input type="range" id="price" min="1000" max="8000" step="100" value="4000">
+        <div class="field-row"><span class="range-min">1,000万</span><span class="val" id="price-v">4,000万円</span><span class="range-max">8,000万</span></div>
+      </div>
+      <div class="field">
+        <label>返済期間（年）</label>
+        <input type="range" id="term" min="10" max="35" step="1" value="35">
+        <div class="field-row"><span class="range-min">10年</span><span class="val" id="term-v">35年</span><span class="range-max">35年</span></div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label>変動金利（%）</label>
+        <input type="range" id="rateVar" min="0.1" max="3.0" step="0.05" value="0.5">
+        <div class="field-row"><span class="range-min">0.1%</span><span class="val" id="rateVar-v">0.50%</span><span class="range-max">3.0%</span></div>
+      </div>
+      <div class="field">
+        <label>固定金利（%）</label>
+        <input type="range" id="rateFix" min="0.5" max="4.0" step="0.05" value="1.5">
+        <div class="field-row"><span class="range-min">0.5%</span><span class="val" id="rateFix-v">1.50%</span><span class="range-max">4.0%</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="alert-box"></div>
+
+  <div class="grid4">
+    <div class="metric"><div class="metric-label">借入額</div><div class="metric-value" id="loan-amt">—</div></div>
+    <div class="metric"><div class="metric-label">変動 月額返済</div><div class="metric-value" id="monthly-var">—</div></div>
+    <div class="metric"><div class="metric-label">固定 月額返済</div><div class="metric-value" id="monthly-fix">—</div></div>
+    <div class="metric"><div class="metric-label">返済比率（変動）</div><div class="metric-value" id="ratio">—</div><div class="metric-sub">推奨 25%以下</div></div>
+  </div>
+
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" data-tab="compare">変動 vs 固定 比較</button>
+      <button class="tab" data-tab="schedule">返済スケジュール</button>
+      <button class="tab" data-tab="prepay">繰り上げ返済</button>
+      <button class="tab" data-tab="risk">金利上昇リスク</button>
+    </div>
+
+    <div id="tab-compare">
+      <div class="legend">
+        <span><span class="dot" style="background:#185FA5"></span>変動 元金</span>
+        <span><span class="dot" style="background:#85B7EB"></span>変動 利息</span>
+        <span><span class="dot" style="background:#3B6D11"></span>固定 元金</span>
+        <span><span class="dot" style="background:#97C459"></span>固定 利息</span>
+      </div>
+      <div class="chart-wrap" style="height:260px"><canvas id="compareChart"></canvas></div>
+      <div class="grid2" style="margin-top:1rem">
+        <div class="metric"><div class="metric-label">変動 総支払額</div><div class="metric-value" id="total-var">—</div></div>
+        <div class="metric"><div class="metric-label">固定 総支払額</div><div class="metric-value" id="total-fix">—</div></div>
+        <div class="metric"><div class="metric-label">変動 総利息</div><div class="metric-value" id="interest-var">—</div></div>
+        <div class="metric"><div class="metric-label">固定 総利息</div><div class="metric-value" id="interest-fix">—</div></div>
+      </div>
+    </div>
+
+    <div id="tab-schedule" style="display:none">
+      <div class="legend">
+        <span><span class="dot" style="background:#185FA5"></span>元金</span>
+        <span><span class="dot" style="background:#85B7EB"></span>利息</span>
+        <span><span class="dot" style="background:#E24B4A"></span>残高（右軸）</span>
+      </div>
+      <div class="chart-wrap" style="height:260px"><canvas id="scheduleChart"></canvas></div>
+    </div>
+
+    <div id="tab-prepay" style="display:none">
+      <div class="prepay-controls">
+        <span>繰上額</span>
+        <input type="number" id="prepay-amt" value="100" min="10" max="5000" step="10">
+        <span>万円</span>
+        <span>タイミング</span>
+        <select id="prepay-year">
+          <option value="5">5年目</option>
+          <option value="10">10年目</option>
+          <option value="15">15年目</option>
+          <option value="20">20年目</option>
+        </select>
+        <span>方式</span>
+        <select id="prepay-type">
+          <option value="shorten">期間短縮型</option>
+          <option value="reduce">返済額軽減型</option>
+        </select>
+      </div>
+      <div class="grid4" style="margin-bottom:1rem">
+        <div class="metric"><div class="metric-label">削減利息</div><div class="metric-value" id="pp-save">—</div></div>
+        <div class="metric"><div class="metric-label">短縮期間</div><div class="metric-value" id="pp-shorten">—</div></div>
+        <div class="metric"><div class="metric-label">繰上後 月返済</div><div class="metric-value" id="pp-monthly">—</div></div>
+        <div class="metric"><div class="metric-label">完済時期</div><div class="metric-value" id="pp-end">—</div></div>
+      </div>
+      <div class="legend">
+        <span><span class="dot" style="background:#185FA5"></span>繰り上げなし残高</span>
+        <span><span class="dot" style="background:#E24B4A"></span>繰り上げ後残高</span>
+      </div>
+      <div class="chart-wrap" style="height:240px"><canvas id="prepayChart"></canvas></div>
+    </div>
+
+    <div id="tab-risk" style="display:none">
+      <div class="risk-controls">
+        <div class="field">
+          <label>金利上昇シナリオ（変動金利が何%に上昇するか）</label>
+          <input type="range" id="riskRate" min="0.5" max="5.0" step="0.1" value="2.0">
+          <div class="field-row"><span class="range-min">0.5%</span><span class="val" id="riskRate-v">2.0%に上昇</span><span class="range-max">5.0%</span></div>
+        </div>
+        <div class="field">
+          <label>上昇タイミング（借入後 何年目から）</label>
+          <input type="range" id="riskYear" min="1" max="20" step="1" value="5">
+          <div class="field-row"><span class="range-min">1年目</span><span class="val" id="riskYear-v">5年目から</span><span class="range-max">20年目</span></div>
+        </div>
+      </div>
+      <div class="grid2" style="margin-bottom:1rem">
+        <div class="metric"><div class="metric-label">上昇後 月額返済</div><div class="metric-value" id="risk-monthly">—</div></div>
+        <div class="metric"><div class="metric-label">現在との差額</div><div class="metric-value" id="risk-diff">—</div></div>
+      </div>
+      <div class="legend">
+        <span><span class="dot" style="background:#185FA5"></span>変動（現状維持）</span>
+        <span><span class="dot" style="background:#E24B4A"></span>変動（金利上昇後）</span>
+        <span><span class="dot" style="background:#3B6D11"></span>固定</span>
+      </div>
+      <div class="chart-wrap" style="height:260px"><canvas id="riskChart"></canvas></div>
+    </div>
+  </div>
+
+  <footer>
+    ※ このシミュレーターは概算値です。実際のローン審査・返済額は金融機関にご確認ください。
+  </footer>
+</div>
+
+<script>
+let charts = {};
+const $ = id => document.getElementById(id);
+
+function fmt(v){ return Math.round(v).toLocaleString('ja-JP') + '万円'; }
+function fmtM(v){ return Math.round(v).toLocaleString('ja-JP') + '円'; }
+
+function monthlyPayment(principal, annualRate, years){
+  const r = annualRate / 100 / 12;
+  const n = years * 12;
+  if(r === 0) return principal * 10000 / n;
+  return principal * 10000 * r * Math.pow(1+r,n) / (Math.pow(1+r,n) - 1);
+}
+
+function amortize(principal, annualRate, years){
+  const r = annualRate / 100 / 12;
+  const n = years * 12;
+  const mp = monthlyPayment(principal, annualRate, years);
+  let bal = principal * 10000, rows = [];
+  for(let i = 0; i < n; i++){
+    const interest = bal * r;
+    const princ = mp - interest;
+    bal -= princ;
+    if(bal < 0) bal = 0;
+    rows.push({ month: i+1, year: Math.ceil((i+1)/12), interest, principal: princ, balance: bal });
+  }
+  return rows;
+}
+
+function yearlyAmortize(rows){
+  let yearly = [];
+  const maxYear = Math.max(...rows.map(r => r.year));
+  for(let y = 1; y <= maxYear; y++){
+    const yr = rows.filter(r => r.year === y);
+    yearly.push({
+      year: y,
+      principal: yr.reduce((a,b) => a+b.principal, 0),
+      interest: yr.reduce((a,b) => a+b.interest, 0),
+      balance: yr[yr.length-1].balance
+    });
+  }
+  return yearly;
+}
+
+function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+
+function getCurrentValues(){
+  return {
+    income: +$('income').value,
+    downpay: +$('downpay').value,
+    price: +$('price').value,
+    term: +$('term').value,
+    rateVar: +$('rateVar').value,
+    rateFix: +$('rateFix').value
+  };
+}
+
+function update(){
+  const {income, downpay, price, term, rateVar, rateFix} = getCurrentValues();
+  $('income-v').textContent = income.toLocaleString() + '万円';
+  $('downpay-v').textContent = downpay.toLocaleString() + '万円';
+  $('price-v').textContent = price.toLocaleString() + '万円';
+  $('term-v').textContent = term + '年';
+  $('rateVar-v').textContent = rateVar.toFixed(2) + '%';
+  $('rateFix-v').textContent = rateFix.toFixed(2) + '%';
+
+  const loan = Math.max(0, price - downpay);
+  const mpVar = monthlyPayment(loan, rateVar, term);
+  const mpFix = monthlyPayment(loan, rateFix, term);
+  const ratio = (mpVar * 12 / 10000) / income * 100;
+
+  $('loan-amt').textContent = fmt(loan);
+  $('monthly-var').textContent = fmtM(mpVar);
+  $('monthly-fix').textContent = fmtM(mpFix);
+  $('ratio').textContent = ratio.toFixed(1) + '%';
+
+  const ab = $('alert-box');
+  if(loan > income * 7){
+    ab.innerHTML = `<div class="alert alert-danger">借入額 ${fmt(loan)} は年収の${(loan/income).toFixed(1)}倍です。審査基準を超えている可能性があります。</div>`;
+  } else if(ratio > 25){
+    ab.innerHTML = `<div class="alert alert-warn">返済比率 ${ratio.toFixed(1)}% は推奨値（25%）を超えています。家計への影響を確認しましょう。</div>`;
+  } else {
+    ab.innerHTML = `<div class="alert alert-ok">返済比率 ${ratio.toFixed(1)}% は適正範囲内です。</div>`;
+  }
+
+  const totalVar = (mpVar * term * 12) / 10000;
+  const totalFix = (mpFix * term * 12) / 10000;
+  $('total-var').textContent = fmt(totalVar);
+  $('total-fix').textContent = fmt(totalFix);
+  $('interest-var').textContent = fmt(totalVar - loan);
+  $('interest-fix').textContent = fmt(totalFix - loan);
+
+  const activeTab = document.querySelector('.tab.active').dataset.tab;
+  renderTab(activeTab);
+}
+
+function renderTab(tab){
+  const d = getCurrentValues();
+  const loan = Math.max(0, d.price - d.downpay);
+  const rowsVar = amortize(loan, d.rateVar, d.term);
+  const rowsFix = amortize(loan, d.rateFix, d.term);
+  const mpVar = monthlyPayment(loan, d.rateVar, d.term);
+  const mpFix = monthlyPayment(loan, d.rateFix, d.term);
+  const ctx = { loan, term: d.term, rateVar: d.rateVar, rateFix: d.rateFix, rowsVar, rowsFix, mpVar, mpFix, income: d.income };
+  if(tab === 'compare') renderCompare(ctx);
+  else if(tab === 'schedule') renderSchedule(ctx);
+  else if(tab === 'prepay') renderPrepay(ctx);
+  else if(tab === 'risk') renderRisk(ctx);
+}
+
+function renderCompare({rowsVar, rowsFix}){
+  const yv = yearlyAmortize(rowsVar);
+  const yf = yearlyAmortize(rowsFix);
+  const labels = yv.map(r => r.year + '年');
+  destroyChart('compareChart');
+  charts['compareChart'] = new Chart($('compareChart'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: '変動 元金', data: yv.map(r => +(r.principal/10000).toFixed(1)), backgroundColor: '#185FA5', stack: 'var' },
+      { label: '変動 利息', data: yv.map(r => +(r.interest/10000).toFixed(1)), backgroundColor: '#85B7EB', stack: 'var' },
+      { label: '固定 元金', data: yf.map(r => +(r.principal/10000).toFixed(1)), backgroundColor: '#3B6D11', stack: 'fix' },
+      { label: '固定 利息', data: yf.map(r => +(r.interest/10000).toFixed(1)), backgroundColor: '#97C459', stack: 'fix' },
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { x: { stacked: true, ticks: { autoSkip: true, maxTicksLimit: 15 } }, y: { stacked: true, ticks: { callback: v => v + '万' } } } }
+  });
+}
+
+function renderSchedule({rowsVar}){
+  const yv = yearlyAmortize(rowsVar);
+  const labels = yv.map(r => r.year + '年');
+  destroyChart('scheduleChart');
+  charts['scheduleChart'] = new Chart($('scheduleChart'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: '元金', data: yv.map(r => +(r.principal/10000).toFixed(1)), backgroundColor: '#185FA5', stack: 's', yAxisID: 'y' },
+      { label: '利息', data: yv.map(r => +(r.interest/10000).toFixed(1)), backgroundColor: '#85B7EB', stack: 's', yAxisID: 'y' },
+      { label: '残高', type: 'line', data: yv.map(r => +(r.balance/10000).toFixed(0)), borderColor: '#E24B4A', backgroundColor: 'transparent', pointRadius: 0, yAxisID: 'y2' },
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: {
+        x: { stacked: true, ticks: { autoSkip: true, maxTicksLimit: 15 } },
+        y: { stacked: true, ticks: { callback: v => v + '万' }, position: 'left' },
+        y2: { position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => v + '万' } }
+      } }
+  });
+}
+
+function renderPrepay({loan, term, rateVar, mpVar}){
+  const ppAmt = +$('prepay-amt').value;
+  const ppYear = +$('prepay-year').value;
+  const ppType = $('prepay-type').value;
+
+  const rowsBefore = amortize(loan, rateVar, term);
+  const balAtPP = rowsBefore.find(r => r.year === ppYear && r.month === ppYear * 12);
+  let remBal = balAtPP ? balAtPP.balance / 10000 : loan * 0.7;
+  remBal -= ppAmt;
+  if(remBal < 0) remBal = 0;
+  const remYears = term - ppYear;
+
+  let newMonthly, newTerm, savedInt, endYear;
+  if(ppType === 'shorten'){
+    newMonthly = mpVar;
+    const r = rateVar / 100 / 12;
+    const n = Math.log(newMonthly / (newMonthly - remBal * 10000 * r)) / Math.log(1 + r);
+    newTerm = Math.ceil(n / 12);
+    const shortened = remYears - newTerm;
+    savedInt = ((mpVar * remYears * 12) - (mpVar * newTerm * 12)) / 10000;
+    endYear = new Date().getFullYear() + ppYear + newTerm;
+    $('pp-shorten').textContent = shortened > 0 ? shortened + '年短縮' : '—';
+    $('pp-monthly').textContent = fmtM(mpVar);
+    $('pp-save').textContent = savedInt > 0 ? fmt(savedInt) : '—';
+    $('pp-end').textContent = endYear + '年';
+  } else {
+    newMonthly = monthlyPayment(remBal, rateVar, remYears);
+    savedInt = (mpVar - newMonthly) * remYears * 12 / 10000;
+    endYear = new Date().getFullYear() + term;
+    $('pp-shorten').textContent = '変更なし';
+    $('pp-monthly').textContent = fmtM(newMonthly);
+    $('pp-save').textContent = savedInt > 0 ? fmt(savedInt) : '—';
+    $('pp-end').textContent = endYear + '年';
+  }
+
+  const yv = yearlyAmortize(rowsBefore);
+  const labels = yv.map(r => r.year + '年');
+  let balAfter = [], bal = loan * 10000;
+  const r = rateVar / 100 / 12;
+  for(let yr = 1; yr <= term; yr++){
+    for(let m = 0; m < 12; m++){
+      const interest = bal * r;
+      bal -= (mpVar - interest);
+      if(bal < 0) bal = 0;
+    }
+    if(yr === ppYear) bal -= ppAmt * 10000;
+    if(bal < 0) bal = 0;
+    balAfter.push(+(bal / 10000).toFixed(0));
+  }
+
+  destroyChart('prepayChart');
+  charts['prepayChart'] = new Chart($('prepayChart'), {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: '繰り上げなし', data: yv.map(r => +(r.balance/10000).toFixed(0)), borderColor: '#185FA5', backgroundColor: 'rgba(24,95,165,0.08)', fill: true, pointRadius: 0 },
+      { label: '繰り上げ後', data: balAfter, borderColor: '#E24B4A', backgroundColor: 'rgba(226,75,74,0.08)', fill: true, pointRadius: 0 },
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 12 } }, y: { ticks: { callback: v => v + '万' } } } }
+  });
+}
+
+function renderRisk({loan, term, rateVar, rateFix, mpVar, mpFix}){
+  const rr = +$('riskRate').value;
+  const ry = +$('riskYear').value;
+  $('riskRate-v').textContent = rr.toFixed(1) + '%に上昇';
+  $('riskYear-v').textContent = ry + '年目から';
+
+  const rowsVar = amortize(loan, rateVar, term);
+  const balAtRY = rowsVar.find(r => r.year === ry && r.month === ry * 12);
+  const remBal = balAtRY ? balAtRY.balance / 10000 : loan * 0.7;
+  const remYears = term - ry;
+  const mpRisk = monthlyPayment(remBal, rr, remYears);
+  const diff = mpRisk - mpVar;
+  $('risk-monthly').textContent = fmtM(mpRisk);
+  $('risk-diff').textContent = (diff >= 0 ? '+' : '') + fmtM(diff);
+
+  const labels = [], dVar = [], dRisk = [], dFix = [];
+  for(let y = 1; y <= term; y++){
+    labels.push(y + '年');
+    dVar.push(+(mpVar * 12 / 10000).toFixed(1));
+    dFix.push(+(mpFix * 12 / 10000).toFixed(1));
+    dRisk.push(y < ry ? +(mpVar * 12 / 10000).toFixed(1) : +(mpRisk * 12 / 10000).toFixed(1));
+  }
+
+  destroyChart('riskChart');
+  charts['riskChart'] = new Chart($('riskChart'), {
+    type: 'line',
+    data: { labels, datasets: [
+      { label: '変動（現状）', data: dVar, borderColor: '#185FA5', pointRadius: 0, borderDash: [5,5] },
+      { label: '変動（上昇後）', data: dRisk, borderColor: '#E24B4A', pointRadius: 0 },
+      { label: '固定', data: dFix, borderColor: '#3B6D11', pointRadius: 0 },
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 12 } }, y: { ticks: { callback: v => v + '万' } } } }
+  });
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', function(){
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    this.classList.add('active');
+    const name = this.dataset.tab;
+    ['compare','schedule','prepay','risk'].forEach(t => $('tab-'+t).style.display = t === name ? '' : 'none');
+    renderTab(name);
+  });
+});
+
+['income','downpay','price','term','rateVar','rateFix'].forEach(id => $(id).addEventListener('input', update));
+['prepay-amt','prepay-year','prepay-type'].forEach(id => $(id).addEventListener('input', () => {
+  const d = getCurrentValues();
+  const loan = Math.max(0, d.price - d.downpay);
+  renderPrepay({ loan, term: d.term, rateVar: d.rateVar, mpVar: monthlyPayment(loan, d.rateVar, d.term) });
+}));
+['riskRate','riskYear'].forEach(id => $(id).addEventListener('input', () => {
+  const d = getCurrentValues();
+  const loan = Math.max(0, d.price - d.downpay);
+  renderRisk({ loan, term: d.term, rateVar: d.rateVar, rateFix: d.rateFix, rowsVar: amortize(loan, d.rateVar, d.term), mpVar: monthlyPayment(loan, d.rateVar, d.term), mpFix: monthlyPayment(loan, d.rateFix, d.term), income: d.income });
+}));
+
+update();
+</script>
+</body>
+</html>
